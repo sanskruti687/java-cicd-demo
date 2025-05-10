@@ -1,0 +1,46 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out code...'
+                // (Optional) If you have a Git repo, use: checkout scm
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Compiling Java code...'
+                sh 'javac Calculator.java'
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                echo 'Building Docker image...'
+                sh 'docker build -t calculator-app .'
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                echo 'Pushing Docker image to DockerHub...'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh '''
+                    echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                    docker tag calculator-app $DOCKER_USERNAME/calculator-app:latest
+                    docker push $DOCKER_USERNAME/calculator-app:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Kubernetes Deploy') {
+            steps {
+                echo 'Deploying to Kubernetes...'
+                sh 'kubectl apply -f deployment.yaml'
+            }
+        }
+    }
+}
